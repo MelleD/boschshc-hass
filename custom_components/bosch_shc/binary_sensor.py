@@ -16,6 +16,7 @@ from boschshcpy import (
     SHCSmokeDetector,
     SHCWaterLeakageSensor,
 )
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
@@ -56,6 +57,12 @@ async def async_setup_entry(
     """Set up the SHC binary sensor platform."""
     entities = []
     session: SHCSession = hass.data[DOMAIN][config_entry.entry_id][DATA_SESSION]
+
+    binary_sensor = SHCFirmewareSensor(
+        session=session,
+        entry_id=config_entry.entry_id,
+    )
+    async_add_entities([binary_sensor])
 
     @callback
     def async_add_shuttercontact(
@@ -184,6 +191,32 @@ async def async_setup_entry(
 
     if entities:
         async_add_entities(entities)
+
+class SHCFirmewareSensor(BinarySensorEntity):
+    """Representation of an SHC firmware update sensor."""
+
+    def __init__(
+        self,
+        session: SHCSession,
+        entry_id: str
+    ) -> None:
+        """Initialize a Radar Warnings sensor."""
+        self._parent_id=session.information.unique_id,
+        self.session = session
+        self._entry_id = entry_id
+        self._attr_name = "SHC Firmware Update"
+        self._attr_unique_id = "shc_firmeware_update"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, self._attr_unique_id)},
+            name="SHC Firmware Update",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def is_on(self):
+        """Return the state of the sensor."""
+        shc_info = self.session.information
+        return shc_info.updateState.name == "UPDATE_AVAILABLE"
 
 
 class ShutterContactSensor(SHCEntity, BinarySensorEntity):
